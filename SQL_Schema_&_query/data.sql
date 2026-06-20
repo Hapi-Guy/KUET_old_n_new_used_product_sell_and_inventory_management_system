@@ -8,7 +8,6 @@ delete from products;
 delete from categories;
 delete from users;
 
--- USERS
 insert into users (
    id,
    name,
@@ -69,7 +68,6 @@ insert into users (
            '$2y$12$jrHaveK490wOTgsP7hTtRu9I.maAlmIpjadnG2MGsmU/a7r9fguZK',
            '01700000005' );
 
--- CATEGORIES
 insert into categories (
    id,
    category_name
@@ -106,7 +104,6 @@ insert into categories (
 ) values ( categories_id_seq.nextval,
            'Calculator' );
 
--- PRODUCTS 
 insert into products (
    id,
    seller_id,
@@ -275,7 +272,6 @@ insert into products (
           'UNAVAILABLE'
      from dual;
 
--- PRODUCT IMAGES
 insert into product_images (
    id,
    product_id,
@@ -495,7 +491,6 @@ insert into bargains (
           'PENDING'
      from dual;
 
--- TRANSACTIONS
 insert into transactions (
    id,
    product_id,
@@ -516,7 +511,6 @@ insert into transactions (
           1500
      from dual;
 
--- WISHLISTS
 insert into wishlists (
    id,
    user_id,
@@ -571,7 +565,6 @@ insert into wishlists (
           )
      from dual;
 
--- RATINGS
 insert into ratings (
    id,
    product_id,
@@ -632,7 +625,6 @@ insert into ratings (
           'Calculator exactly as described, good deal.'
      from dual;
 
--- REPORTS
 insert into reports (
    id,
    reporter_id,
