@@ -3,6 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\RerdirectResponse;
+use Illuminate\Contracts\View\View;
+use app\Models\Product;
+use app\Models\Wishlist;
+
 
 class ProductController extends Controller
 {
@@ -103,5 +108,10 @@ class ProductController extends Controller
 
         return redirect()->route('products.mine')->with('status', 'Product removed.');
     }
-
+    private function authorizeSeller(Product $product): void
+    {
+        if (Auth::id() !== (int) $product->seller_id) {
+            abort(403, 'You are not authorized to perform this action.');
+        }
+    }
 }
