@@ -28,6 +28,11 @@
         footer { color: #6c757d; }
         .auth-wrapper { min-height: 100vh; display: flex; align-items: center;
             background: linear-gradient(135deg, var(--kuet-dark), var(--kuet)); }
+        /* Inline per-field validation message (with its own dismiss button). */
+        .field-error { font-size: .85rem; }
+        .field-error .btn-close-field { font-size: .6rem; padding: .25rem; flex: 0 0 auto; }
+        /* After-sale bid statuses (Sold / Rejected) rendered at a uniform width. */
+        .bid-status-badge { display: inline-block; min-width: 84px; padding-top: .45rem; padding-bottom: .45rem; }
     </style>
     @stack('styles')
 </head>
@@ -48,6 +53,9 @@
                     <li class="nav-item"><a class="nav-link" href="{{ route('products.mine') }}"><i class="bi bi-box-seam"></i> My products</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('wishlist.index') }}"><i class="bi bi-heart"></i> Wishlist</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('transactions.index') }}"><i class="bi bi-receipt"></i> My deals</a></li>
+                    @if (auth()->user()->isAdmin())
+                        <li class="nav-item"><a class="nav-link" href="{{ route('admin.dashboard') }}"><i class="bi bi-speedometer2"></i> Admin</a></li>
+                    @endif
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
@@ -63,7 +71,6 @@
                                     <button class="dropdown-item text-danger" type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button>
                                 </form>
                             </li>
-
                         </ul>
                     </li>
                 </ul>
@@ -73,22 +80,27 @@
 @endauth
 
     <main class="@yield('main-class', 'container py-4')">
-        @if (session('status'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle"></i> {{ session('status') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-        @if ($errors->any())
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <ul class="mb-0">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
+        {{-- Global banners are only for the authenticated app shell. Guest/auth
+             pages (login, register) show validation inline under each field, so
+             nothing floats beside the centered card. --}}
+        @auth
+            @if (session('status'))
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle"></i> {{ session('status') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+            @if ($errors->any())
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <ul class="mb-0">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+        @endauth
 
         @yield('content')
     </main>
@@ -100,6 +112,24 @@
     @endauth
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Dismiss an inline field error: hide the message and clear the red
+        // border on the input it belongs to.
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.field-error .btn-close-field');
+            if (! btn) return;
+            var group = btn.closest('.mb-3, [class*="col-"]') || btn.parentElement;
+            var input = group ? group.querySelector('.is-invalid') : null;
+            if (input) { input.classList.remove('is-invalid'); }
+            var box = btn.closest('.field-error');
+            if (box) { box.remove(); }
+        });
+
+        // Enable Bootstrap popovers (used by the "Contact" button on bids).
+        document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
+            new bootstrap.Popover(el);
+        });
+    </script>
     @stack('scripts')
 </body>
 </html>

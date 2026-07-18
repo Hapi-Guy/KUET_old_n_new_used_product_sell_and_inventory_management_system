@@ -14,34 +14,34 @@
                 <div class="card-body p-4">
                     <h5 class="card-title mb-3">Create your account</h5>
 
-                    @if ($errors->any())
-                        <div class="alert alert-danger py-2">
-                            <ul class="mb-0 ps-3">
-                                @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
-                            </ul>
-                        </div>
-                    @endif
-
                     <form method="POST" action="{{ route('register') }}">
                         @csrf
                         <div class="mb-3">
                             <label class="form-label">Full name</label>
-                            <input type="text" name="name" value="{{ old('name') }}" class="form-control" required autofocus>
+                            <input type="text" name="name" value="{{ old('name') }}"
+                                   class="form-control @error('name') is-invalid @enderror" required autofocus>
+                            @include('partials.field-error', ['field' => 'name'])
                         </div>
                         <div class="mb-3">
                             <label class="form-label">KUET email</label>
                             <input type="email" name="email" value="{{ old('email') }}"
-                                   class="form-control" placeholder="you@stud.kuet.ac.bd" required>
+                                   class="form-control @error('email') is-invalid @enderror"
+                                   placeholder="you@stud.kuet.ac.bd" required>
                             <div class="form-text">Must end with <code>@stud.kuet.ac.bd</code></div>
+                            @include('partials.field-error', ['field' => 'email'])
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Mobile number <span class="text-muted">(optional)</span></label>
-                            <input type="text" name="mobile_no" value="{{ old('mobile_no') }}" class="form-control">
+                            <input type="text" name="mobile_no" value="{{ old('mobile_no') }}"
+                                   class="form-control @error('mobile_no') is-invalid @enderror">
+                            @include('partials.field-error', ['field' => 'mobile_no'])
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" required>
+                                <input type="password" name="password"
+                                       class="form-control @error('password') is-invalid @enderror" required>
+                                @include('partials.field-error', ['field' => 'password'])
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Confirm password</label>

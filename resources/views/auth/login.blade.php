@@ -14,22 +14,27 @@
                 <div class="card-body p-4">
                     <h5 class="card-title mb-3">Sign in</h5>
 
-                    @if ($errors->any())
-                        <div class="alert alert-danger py-2">
-                            {{ $errors->first() }}
+                    @if (session('status'))
+                        <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+                            <i class="bi bi-check-circle"></i> {{ session('status') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     @endif
 
                     <form method="POST" action="{{ route('login') }}">
                         @csrf
                         <div class="mb-3">
-                            <label class="form-label">KUET email</label>
+                            <label class="form-label">Email</label>
                             <input type="email" name="email" value="{{ old('email') }}"
-                                   class="form-control" placeholder="you@stud.kuet.ac.bd" required autofocus>
+                                   class="form-control @error('email') is-invalid @enderror"
+                                   placeholder="you@stud.kuet.ac.bd" required autofocus>
+                            @include('partials.field-error', ['field' => 'email'])
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" name="password" class="form-control" required>
+                            <input type="password" name="password"
+                                   class="form-control @error('password') is-invalid @enderror" required>
+                            @include('partials.field-error', ['field' => 'password'])
                         </div>
                         <button type="submit" class="btn btn-kuet w-100">Sign in</button>
                     </form>

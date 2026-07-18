@@ -70,6 +70,12 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        // Invisible router: the database record decides where you land.
+        // Admins go to the admin dashboard, everyone else to the marketplace.
+        if (Auth::user()->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+
         return redirect()->intended(route('products.index'));
     }
 
