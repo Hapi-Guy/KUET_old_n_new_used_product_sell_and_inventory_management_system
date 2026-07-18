@@ -11,6 +11,59 @@ use app\Models\Wishlist;
 
 class ProductController extends Controller
 {
+    public function index(Request $request): View
+    {
+        $search    = trim((string) $request->query('q', ''));
+        $category  = $request->query('category');
+        $condition = $request->query('condition');
+        $sort      = $request->query('sort', 'latest');
+
+        $query = ViewAllProducts::query();
+
+        if ($search !== '') {
+            // Case-insensitive title search.
+            $query->whereRaw('UPPER(title) LIKE ?', ['%' . strtoupper($search) . '%']);
+        }
+        if ($category) {
+            $query->where('category_name', $category);
+        }
+        if (in_array($condition, [Product::CONDITION_NEW, Product::CONDITION_OLD], true)) {
+            $query->where('product_condition', $condition);
+        }
+
+        match ($sort) {
+            'price_low'  => $query->orderBy('min_proposed_price', 'asc'),
+            'price_high' => $query->orderBy('min_proposed_price', 'desc'),
+            'bid_high'   => $query->orderBy('max_current_bid', 'desc'),
+            'condition'  => $query->orderBy('product_condition', 'asc')->orderBy('product_id', 'desc'),
+            default      => $query->orderBy('product_id', 'desc'), // latest
+        };
+
+        $rows = $query->paginate(9)->withQueryString();
+
+        // Attach a thumbnail for each listed product (view has no image column).
+        $ids = collect($rows->items())->pluck('product_id')->all();
+        $thumbs = $ids
+            ? ProductImage::whereIn('product_id', $ids)
+                ->get()
+                ->groupBy('product_id')
+                ->map(fn ($g) => $g->first()->image_path)
+            : collect();
+
+        $wishlisted = Auth::check()
+            ? Wishlist::where('user_id', Auth::id())->pluck('product_id')->all()
+            : [];
+
+        return view('products.index', [
+            'rows'        => $rows,
+            'thumbs'      => $thumbs,
+            'categories'  => Category::orderBy('category_name')->get(),
+            'filters'     => compact('search', 'category', 'condition', 'sort'),
+            'wishlisted'  => $wishlisted,
+        ]);
+    }
+
+
     public function show(Product $product): View
     {
         $product->load([
@@ -87,6 +140,7 @@ class ProductController extends Controller
         return redirect()->route('products.show', $product)
             ->with('status', 'Your product has been listed.');
     }
+
     public function edit(Product $product): View
     {
         $this->authorizeSeller($product);
@@ -96,6 +150,37 @@ class ProductController extends Controller
             'categories' => Category::orderBy('category_name')->get(),
         ]);
     }
+
+    public function update(Request $request, Product $product): RedirectResponse
+    {
+        $this->authorizeSeller($product);
+
+        $data = $request->validate([
+            'title'              => ['required', 'string', 'max:150'],
+            'category_id'        => ['required', 'integer', 'exists:categories,id'],
+            'description'        => ['nullable', 'string', 'max:1000'],
+            'product_condition'  => ['required', 'in:NEW,OLD'],
+            'min_proposed_price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'status'             => ['required', 'in:AVAILABLE,UNAVAILABLE'],
+            'images.*'           => ['nullable', 'image', 'max:4096'],
+        ]);
+
+        DB::transaction(function () use ($data, $request, $product) {
+            $product->update($data);
+
+            foreach ((array) $request->file('images', []) as $image) {
+                $path = $image->store('products', 'public');
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_path' => $path,
+                ]);
+            }
+        });
+
+        return redirect()->route('products.show', $product)
+            ->with('status', 'Product updated.');
+    }
+
     public function destroy(Product $product): RedirectResponse
     {
         $this->authorizeSeller($product);

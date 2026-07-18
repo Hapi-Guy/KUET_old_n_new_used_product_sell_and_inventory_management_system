@@ -37,8 +37,10 @@ create table users (
    email         varchar2(150) unique not null,
    password_hash varchar2(255) not null,
    mobile_no     varchar2(20),
+   is_admin      number(1) default 0 not null,
    created_at    timestamp default current_timestamp,
-   constraint chk_kuet_email check ( email like '%@stud.kuet.ac.bd' )
+   constraint chk_kuet_email check ( email like '%@stud.kuet.ac.bd' ),
+   constraint chk_is_admin check ( is_admin in ( 0, 1 ) )
 );
 
 create table categories (
