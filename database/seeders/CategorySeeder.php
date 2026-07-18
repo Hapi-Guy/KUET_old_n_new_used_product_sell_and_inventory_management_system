@@ -12,7 +12,7 @@ class CategorySeeder extends Seeder
     {
         $categories = [
             'Books', 'Laptop', 'Mobile', 'Electronics',
-            'Furniture', 'Cycle', 'Calculator',
+            'Furniture', 'Cycle', 'Calculator', 'Others',
         ];
 
         foreach ($categories as $name) {

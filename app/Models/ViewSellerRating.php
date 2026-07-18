@@ -4,7 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-
+/**
+ * Read-only model mapped to the Oracle view "view_seller_ratings".
+ * Provides each seller's average rating and review count.
+ */
 class ViewSellerRating extends Model
 {
     protected $connection = 'oracle';

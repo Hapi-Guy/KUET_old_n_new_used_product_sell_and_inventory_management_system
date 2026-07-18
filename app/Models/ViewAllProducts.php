@@ -4,7 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-
+/**
+ * Read-only model mapped to the Oracle view "view_all_products".
+ * Powers the smart search / filter / sort dashboard.
+ */
 class ViewAllProducts extends Model
 {
     protected $connection = 'oracle';
@@ -24,6 +27,7 @@ class ViewAllProducts extends Model
         ];
     }
 
+    /** Views are read-only. */
     public function save(array $options = [])
     {
         return false;
