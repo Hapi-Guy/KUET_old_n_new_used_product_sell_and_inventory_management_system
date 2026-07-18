@@ -2,15 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bargain;
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\ProductImage;
+use App\Models\Rating;
+use App\Models\Transaction;
+use App\Models\ViewAllProducts;
+use App\Models\Wishlist;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\RerdirectResponse;
-use Illuminate\Contracts\View\View;
-use app\Models\Product;
-use app\Models\Wishlist;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class ProductController extends Controller
 {
+    /**
+     * "All Products" dashboard with smart search, filter and sort.
+     * Reads from the Oracle view `view_all_products` (only AVAILABLE products,
+     * pre-joined with category and aggregated max current bid).
+     */
     public function index(Request $request): View
     {
         $search    = trim((string) $request->query('q', ''));
@@ -63,7 +75,6 @@ class ProductController extends Controller
         ]);
     }
 
-
     public function show(Product $product): View
     {
         $product->load([
@@ -76,14 +87,27 @@ class ProductController extends Controller
         $sellerRating = $product->seller->sellerRating();
 
         $isSeller = Auth::id() === (int) $product->seller_id;
+        // Seller of this product, or any admin, may add/remove its photos.
+        $canManagePhotos = $isSeller || Auth::user()->isAdmin();
+
+        // Highest live bid (excludes REJECTED, matching the dashboard's max_current_bid).
+        $highestBid = $product->bargains
+            ->where('bid_status', '!=', 'REJECTED')
+            ->max('bid_amount');
         $myBid = Auth::check()
             ? $product->bargains->firstWhere('buyer_id', Auth::id())
             : null;
         $inWishlist = Auth::check()
             && Wishlist::where('user_id', Auth::id())->where('product_id', $product->id)->exists();
 
+        // The rating this user has already left on this sale (if any), so the
+        // form can be replaced with a summary instead of allowing a re-rate.
+        $myRating = ($product->transaction && Auth::check())
+            ? Rating::where('product_id', $product->id)->where('rater_id', Auth::id())->first()
+            : null;
+
         return view('products.show', compact(
-            'product', 'sellerRating', 'isSeller', 'myBid', 'inWishlist'
+            'product', 'sellerRating', 'isSeller', 'canManagePhotos', 'highestBid', 'myBid', 'inWishlist', 'myRating'
         ));
     }
 
@@ -104,6 +128,7 @@ class ProductController extends Controller
             'categories' => Category::orderBy('category_name')->get(),
         ]);
     }
+
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
@@ -181,6 +206,68 @@ class ProductController extends Controller
             ->with('status', 'Product updated.');
     }
 
+    /**
+     * Seller manually switches the listing status.
+     *  - SOLD      finalises the deal with the currently chosen (ACCEPTED) bid:
+     *              it records the transaction and wishlists the other still-open
+     *              bidders. Other bids are NOT rejected.
+     *  - AVAILABLE reopens the listing (and removes the recorded sale if it was
+     *              previously SOLD).
+     *  - UNAVAILABLE just hides it from the marketplace.
+     */
+    public function updateStatus(Request $request, Product $product): RedirectResponse
+    {
+        $this->authorizeSeller($product);
+
+        $data = $request->validate([
+            'status' => ['required', 'in:AVAILABLE,SOLD,UNAVAILABLE'],
+        ]);
+        $target = $data['status'];
+
+        if ($target === $product->status) {
+            return back();
+        }
+
+        if ($target === Product::STATUS_SOLD) {
+            $accepted = $product->bargains()
+                ->where('bid_status', Bargain::STATUS_ACCEPTED)
+                ->first();
+
+            if (! $accepted) {
+                return back()->withErrors([
+                    'status' => 'Choose the winning bid first, then mark the product as Sold.',
+                ]);
+            }
+
+            // The whole finalisation (record the transaction, mark the product
+            // SOLD, and wishlist the passed-over PENDING bidders) is done by the
+            // Oracle stored procedure sp_finalize_sale. It does not COMMIT, so we
+            // wrap the call in a Laravel transaction to control commit/rollback.
+            DB::transaction(function () use ($product) {
+                DB::statement('BEGIN sp_finalize_sale(?); END;', [$product->id]);
+            });
+
+            return back()->with('status', 'Product marked as Sold to ' . $accepted->buyer->name . '.');
+        }
+
+        if ($target === Product::STATUS_AVAILABLE) {
+            DB::transaction(function () use ($product) {
+                // Reopening a sold item removes the recorded transaction.
+                if ($product->isSold()) {
+                    DB::delete('DELETE FROM transactions WHERE product_id = ?', [$product->id]);
+                }
+                DB::update('UPDATE products SET status = ? WHERE id = ?', [Product::STATUS_AVAILABLE, $product->id]);
+            });
+
+            return back()->with('status', 'Product is available again.');
+        }
+
+        // UNAVAILABLE
+        DB::update('UPDATE products SET status = ? WHERE id = ?', [Product::STATUS_UNAVAILABLE, $product->id]);
+
+        return back()->with('status', 'Product marked as unavailable.');
+    }
+
     public function destroy(Product $product): RedirectResponse
     {
         $this->authorizeSeller($product);
@@ -189,14 +276,15 @@ class ProductController extends Controller
             return back()->withErrors(['product' => 'A sold product cannot be deleted.']);
         }
 
-        $product->delete();
+        // Raw Oracle DELETE. Child rows (images, bargains, wishlists) are removed
+        // by their ON DELETE CASCADE foreign keys.
+        DB::delete('DELETE FROM products WHERE id = ?', [$product->id]);
 
         return redirect()->route('products.mine')->with('status', 'Product removed.');
     }
+
     private function authorizeSeller(Product $product): void
     {
-        if (Auth::id() !== (int) $product->seller_id) {
-            abort(403, 'You are not authorized to perform this action.');
-        }
+        abort_unless(Auth::id() === (int) $product->seller_id, 403, 'You do not own this product.');
     }
 }
