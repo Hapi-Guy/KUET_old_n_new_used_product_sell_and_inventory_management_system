@@ -7,7 +7,7 @@ A campus-oriented marketplace designed specifically for the students of KUET. Th
 * **Backend Framework:** Laravel (PHP)
 * **Database System:** Oracle 11g Express Edition
 * **Database Driver:** Oracle Instant Client & PHP OCI8 (`yajra/laravel-oci8`)
-* **Frontend:** Laravel Blade, Bootstrap/Tailwind CSS 
+* **Frontend:** Laravel Blade 
 
 ## Core Features
 
