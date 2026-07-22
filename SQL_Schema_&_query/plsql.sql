@@ -1,20 +1,6 @@
--- ============================================================================
--- PL/SQL objects for the KUET Old & New Used Product Sale & Inventory System
--- ----------------------------------------------------------------------------
--- Contains: VARRAY type, OBJECT type (+ member function), stored FUNCTIONS,
--- and a stored PROCEDURE. Run AFTER table.sql (these depend on the tables).
--- In SQL*Plus / SQL Developer each block is terminated with a slash (/).
--- ============================================================================
-
--- ---------------------------------------------------------------------------
--- 1. VARRAY  -- a bounded list of image paths for a product
--- ---------------------------------------------------------------------------
 CREATE OR REPLACE TYPE image_path_varray AS VARRAY(10) OF VARCHAR2(255);
 /
 
--- ---------------------------------------------------------------------------
--- 2. OBJECT type (+ member function)  -- a compact product summary
--- ---------------------------------------------------------------------------
 CREATE OR REPLACE TYPE product_summary_obj AS OBJECT (
    product_id NUMBER,
    title      VARCHAR2(150),
@@ -31,9 +17,6 @@ CREATE OR REPLACE TYPE BODY product_summary_obj AS
 END;
 /
 
--- ---------------------------------------------------------------------------
--- 3. FUNCTION  -- a seller's average SELLER_RATING (0 if none)
--- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_seller_avg_rating(p_seller_id IN NUMBER)
    RETURN NUMBER
 IS
@@ -48,9 +31,6 @@ BEGIN
 END;
 /
 
--- ---------------------------------------------------------------------------
--- 4. FUNCTION returning a VARRAY  -- the image paths of a product
--- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_product_images(p_product_id IN NUMBER)
    RETURN image_path_varray
 IS
@@ -67,9 +47,6 @@ BEGIN
 END;
 /
 
--- ---------------------------------------------------------------------------
--- 5. FUNCTION exercising the OBJECT type  -- builds a summary, returns its label
--- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_product_label(p_product_id IN NUMBER)
    RETURN VARCHAR2
 IS
@@ -90,12 +67,6 @@ EXCEPTION
 END;
 /
 
--- ---------------------------------------------------------------------------
--- 6. PROCEDURE  -- finalise a sale for a product's chosen (ACCEPTED) bid.
---    Records the transaction, marks the product SOLD, and wishlists the
---    passed-over PENDING bidders. Does NOT commit (the caller controls the
---    transaction), so from SQL*Plus issue COMMIT; afterwards.
--- ---------------------------------------------------------------------------
 CREATE OR REPLACE PROCEDURE sp_finalize_sale(p_product_id IN NUMBER)
 IS
    v_bargain_id bargains.id%TYPE;
@@ -103,7 +74,6 @@ IS
    v_amount     bargains.bid_amount%TYPE;
    v_cnt        NUMBER;
 BEGIN
-   -- The chosen (ACCEPTED) bid for this product.
    SELECT id, buyer_id, bid_amount
      INTO v_bargain_id, v_buyer_id, v_amount
      FROM bargains
@@ -111,7 +81,6 @@ BEGIN
       AND bid_status = 'ACCEPTED'
       AND ROWNUM = 1;
 
-   -- Record the sale (product_id is UNIQUE in transactions).
    SELECT COUNT(*) INTO v_cnt FROM transactions WHERE product_id = p_product_id;
    IF v_cnt > 0 THEN
       UPDATE transactions
@@ -122,10 +91,8 @@ BEGIN
       VALUES (p_product_id, v_buyer_id, v_amount);
    END IF;
 
-   -- Mark the product SOLD.
    UPDATE products SET status = 'SOLD' WHERE id = p_product_id;
 
-   -- Wishlist the passed-over (still PENDING) bidders as a fallback.
    FOR r IN (SELECT DISTINCT buyer_id
                FROM bargains
               WHERE product_id = p_product_id
@@ -145,11 +112,3 @@ EXCEPTION
          'No chosen (ACCEPTED) bid to finalise for product ' || p_product_id);
 END;
 /
-
--- ---------------------------------------------------------------------------
--- Demo calls (safe to run):
---   SELECT u.name, fn_seller_avg_rating(u.id) AS avg_rating FROM users u;
---   SELECT p.id, fn_product_label(p.id) AS summary FROM products p;
---   SELECT p.id, (SELECT COUNT(*) FROM TABLE(fn_product_images(p.id))) AS imgs FROM products p;
---   BEGIN sp_finalize_sale(<product_id_with_ACCEPTED_bid>); END;  -- then COMMIT;
--- ---------------------------------------------------------------------------

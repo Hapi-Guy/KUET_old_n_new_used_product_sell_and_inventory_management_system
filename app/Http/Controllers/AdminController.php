@@ -11,13 +11,7 @@ use Illuminate\View\View;
 
 class AdminController extends Controller
 {
-    /**
-     * Minimal admin dashboard: read-only site overview.
-     * The headline aggregates are computed with raw Oracle SQL (DB::scalar
-     * returns the first column of the first row) to show hand-written queries
-     * running against the tables; the detail lists below still use Eloquent
-     * because the views rely on model relationships.
-     */
+    
     public function dashboard(): View
     {
         $stats = [
